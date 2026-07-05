@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="sr">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +12,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #0f172a; user-select: none;
         }
-        #canvas-container { width: 100%; height: 100%; position: absolute; z-index: 1; }
+        #view-container { width: 100%; height: 100%; position: absolute; z-index: 1; }
         
         /* Arsenal i Kontrole (HUD) */
         .hud {
@@ -50,15 +50,11 @@
         
         .hint { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: 11px; color: #475569; background: rgba(255,255,255,0.8); padding: 6px 15px; border-radius: 20px; pointer-events: none; border: 1px solid rgba(0,0,0,0.1); }
     </style>
-    
-    <!-- Učitavanje kompletnog Three.js koda bez spoljnih linkova (Prebačen u inline skriptu visoke pouzdanosti) -->
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
-    <div class="hint">LEVI KLIK = NAPAD / PUCAJ | DRŽITE DESNI KLIK + PREVUCITE = ROTACIJA KAMERE</div>
-    <div id="canvas-container"></div>
+    <div class="hint">LEVI KLIK = PUCAJ / NAPADNI | DRŽITE DESNI KLIK + PREVUCITE = ROTACIJA TELA</div>
+    <canvas id="view-container"></canvas>
 
     <!-- LEVI HUD -->
     <div class="hud" id="ui-left">
@@ -110,94 +106,103 @@
     </div>
 
     <script>
-        let scene, camera, renderer, controls, clock;
+        const canvas = document.getElementById('view-container');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
         let activeLayers = { skelet: true, krvotok: true, organi: true, koza: true };
         let activeWeapon = 'knife';
 
-        let body = { hp: 100, bpm: 72, isAlive: true };
-        let raycaster, mouse;
-        
-        // 3D Grupe za slojeve čoveka
-        let groupSkelet, groupKrvotok, groupOrgani, groupKoza, groupBloodParticles;
-        let activeOrgansArray = [];
-        let bloodParticlesArray = [];
+        let body = { hp: 100, bpm: 72, isAlive: true, x: width / 2, y: height / 2 - 30 };
+        let rotX = 0.2, rotY = 0.5;
+        let isRightDragging = false, lastMouseX = 0, lastMouseY = 0;
 
-        function init3DEngine() {
-            const container = document.getElementById('canvas-container');
-            clock = new THREE.Clock();
+        let organs = [];
+        let bloodParticles = [];
+        let skeletalMesh = []; 
+        let skinMesh = [];     
+        let bloodVesselMesh = [];
 
-            // Pravljenje scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xffffff); // Čisto bela pozadina
+        // --- NATIVE PROCEDURALNI 3D GENERATOR SVAKOG ASETA (NE ZAVISI OD INTERNETA) ---
+        function buildFullAnatomyAssets() {
+            skeletalMesh = []; skinMesh = []; bloodVesselMesh = []; organs = [];
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 0, 5);
+            // 1. Generisanje 3D tačaka Kostura (Kičma, Rebra, Lobanja)
+            for(let y = -1.2; y <= 1.2; y += 0.08) {
+                skeletalMesh.push({ x: 0, y: y, z: 0, color: '#94a3b8', r: 3.5 }); 
+                if(y > -0.4 && y < 1.0) {
+                    for(let rAngle = 0; rAngle < Math.PI * 2; rAngle += 0.5) {
+                        skeletalMesh.push({ 
+                            x: Math.sin(rAngle) * 0.45, y: y, z: Math.cos(rAngle) * 0.25, 
+                            color: '#cbd5e1', r: 2 
+                        }); 
+                    }
+                }
+            }
+            for(let i=0; i<200; i++) {
+                let theta = Math.random() * Math.PI * 2;
+                let phi = Math.random() * Math.PI;
+                skeletalMesh.push({
+                    x: 0.3 * Math.sin(phi) * Math.cos(theta),
+                    y: 1.4 + 0.3 * Math.cos(phi),
+                    z: 0.25 * Math.sin(phi) * Math.sin(theta),
+                    color: '#cbd5e1', r: 2.5
+                });
+            }
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-            container.appendChild(renderer.domElement);
+            // 2. Generisanje 3D tačaka Krvotoka
+            for(let y = -1.5; y <= 1.4; y += 0.04) {
+                bloodVesselMesh.push({ x: -0.04, y: y, z: 0.02, color: '#dc2626', r: 2 }); 
+                bloodVesselMesh.push({ x: 0.04, y: y, z: -0.02, color: '#2563eb', r: 1.8 }); 
+                if(Math.random() > 0.6) {
+                    bloodVesselMesh.push({ x: (Math.random()-0.5)*0.6, y: y, z: (Math.random()-0.5)*0.2, color: '#ef4444', r: 1.2 });
+                }
+            }
 
-            // Orbit kontrole za puni 3D (Desni klik rotira, skrol zumira)
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.maxDistance = 10;
-            controls.minDistance = 2;
+            // 3. Generisanje 3D Mreže Kože (Prozirna silueta)
+            for(let y = -1.8; y <= 1.8; y += 0.06) {
+                let rad = 0.55;
+                if (y > 1.1) rad = 0.35; 
+                if (y < -1.0) rad = 0.28; 
 
-            // Tri-tačkovno studijsko osvetljenje visokog kontrasta
-            const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            mainLight.position.set(5, 8, 5);
-            scene.add(mainLight);
+                for(let a = 0; a < Math.PI * 2; a += 0.3) {
+                    skinMesh.push({
+                        x: Math.sin(a) * rad, y: y, z: Math.cos(a) * rad * 0.7,
+                        color: 'rgba(241, 194, 125, 0.12)', r: 1.5
+                    });
+                }
+            }
 
-            const fillLight = new THREE.DirectionalLight(0x94a3b8, 0.8);
-            fillLight.position.set(-5, 3, 2);
-            scene.add(fillLight);
-
-            const rimLight = new THREE.DirectionalLight(0xff3366, 0.6); // Blagi crveni odsjaj na ivicama 3D modela
-            rimLight.position.set(0, -3, -5);
-            scene.add(rimLight);
-
-            const ambient = new THREE.AmbientLight(0xefefef, 0.6);
-            scene.add(ambient);
-
-            // Inicijalizacija 3D grupa za slojeve
-            groupSkelet = new THREE.Group();
-            groupKrvotok = new THREE.Group();
-            groupOrgani = new THREE.Group();
-            groupKoza = new THREE.Group();
-            groupBloodParticles = new THREE.Group();
-
-            scene.add(groupSkelet);
-            scene.add(groupKrvotok);
-            scene.add(groupOrgani);
-            scene.add(groupKoza);
-            scene.add(groupBloodParticles);
-
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-
-            // Povezivanje događaja i izgradnja anatomije
-            setupInterfaceEvents();
-            hardReset();
-            
-            // Slušaoci za napad (levi klik) i promenu prozora
-            window.addEventListener('click', performWeaponAttack, false);
-            window.addEventListener('resize', onWindowResize, false);
-
-            animateLoop();
+            // 4. Inicijalni 3D Organi
+            spawnOrganAsset('Srce', -0.08, 0.4, 0.05, '#b91c1c');
+            spawnOrganAsset('Levo Pluće', -0.28, 0.5, -0.05, '#f472b6');
+            spawnOrganAsset('Desno Pluće', 0.28, 0.5, -0.05, '#f472b6');
+            spawnOrganAsset('Jetra', 0.1, -0.1, 0, '#7f1d1d');
         }
 
-        // --- PROCEDURALNA GENERACIJA PRAVIH 3D GEOMETRIJA (Učitava se u VRAM) ---
-        function generateHuman3DAssets() {
-            // Brisanje starih 3D objekata iz grupa
-            while(groupSkelet.children.length > 0) groupSkelet.remove(groupSkelet.children[0]);
-            while(groupKrvotok.children.length > 0) groupKrvotok.remove(groupKrvotok.children[0]);
-            while(groupOrgani.children.length > 0) groupOrgani.remove(groupOrgani.children[0]);
-            while(groupKoza.children.length > 0) groupKoza.remove(groupKoza.children[0]);
-            activeOrgansArray = [];
+        function spawnOrganAsset(type, cx, cy, cz, color) {
+            let pts = [];
+            let count = 300;
+            for(let i=0; i<count; i++) {
+                let theta = Math.random() * Math.PI * 2;
+                let phi = Math.random() * Math.PI;
+                let rx = 0.18, ry = 0.25, rz = 0.15;
+                pts.push({
+                    x: cx + rx * Math.sin(phi) * Math.cos(theta),
+                    y: cy + ry * Math.cos(phi),
+                    z: cz + rz * Math.sin(phi) * Math.sin(theta)
+                });
+            }
+            organs.push({ type: type, cx: cx, cy: cy, cz: cz, color: color, points: pts, health: 100 });
+        }
 
-            // 1. PRAVI 3D KOSTUR (Mreža cilindara i sfera)
-            const boneMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 });
-Use code with caution.// Lobanja (3D Sfera)const skullGeo = new THREE.SphereGeometry(0.25, 32, 32);const skullMesh = new THREE.Mesh(skullGeo, boneMat);skullMesh.position.y = 1.3;groupSkelet.add(skullMesh);// Kičma (3D Cilindar)const spineGeo = new THREE.CylinderGeometry(0.03, 0.03, 2.0, 16);const spineMesh = new THREE.Mesh(spineGeo, boneMat);spineMesh.position.y = 0.2;groupSkelet.add(spineMesh);// Grudni koš (Proceduralni 3D prstenovi rebara)for(let i=0; i<8; i++) {let ribGeo = new THREE.TorusGeometry(0.3, 0.015, 8, 24);let ribMesh = new THREE.Mesh(ribGeo, boneMat);ribMesh.position.y = 0.7 - (i * 0.12);ribMesh.rotation.x = Math.PI / 2;groupSkelet.add(ribMesh);}// 2. PRAVI 3D KRVOTOK (Crvene i plave cevi)const artMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3 });const venaMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.3 });const aortaGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.8, 8);const aorta = new THREE.Mesh(aortaGeo, artMat);aorta.position.set(-0.03, 0.2, 0.01);groupKrvotok.add(aorta);const vena = new THREE.Mesh(aortaGeo, venaMat);vena.position.set(0.03, 0.2, -0.01);groupKrvotok.add(vena);// 3. PRAVA 3D KOŽA (Prozirni providni 3D spoljni oklop čoveka)const skinMat = new THREE.MeshStandardMaterial({color: 0xf1c27d, transparent: true, opacity: 0.15, roughness: 0.4});const bodyGeo = new THREE.CylinderGeometry(0.42, 0.35, 2.4, 32);const bodySkin = new THREE.Mesh(bodyGeo, skinMat);bodySkin.position.y = 0.2;groupKoza.add(bodySkin);const headGeo = new THREE.SphereGeometry(0.32, 32, 32);const headSkin = new THREE.Mesh(headGeo, skinMat);headSkin.position.y = 1.3;groupKoza.add(headSkin);// 4. PRAVI 3D ORGANI (PBR materijali visokog sjaja / sluzav izgled)spawn3DOrganModel('Srce', -0.05, 0.4, 0.06, 0x990000, 'sphere');spawn3DOrganModel('Levo Pluće', -0.18, 0.5, -0.02, 0xf472b6, 'cylinder');spawn3DOrganModel('Desno Pluće', 0.18, 0.5, -0.02, 0xf472b6, 'cylinder');spawn3DOrganModel('Jetra', 0.1, 0.0, 0.05, 0x660000, 'cone');}function spawn3DOrganModel(type, x, y, z, colorHex, shape) {let geo;if(shape === 'sphere') geo = new THREE.SphereGeometry(0.12, 32, 32);else if(shape === 'cylinder') geo = new THREE.CylinderGeometry(0.08, 0.08, 0.35, 16);else geo = new THREE.ConeGeometry(0.16, 0.25, 4);const mat = new THREE.MeshPhysicalMaterial({color: colorHex, roughness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.05});const mesh = new THREE.Mesh(geo, mat);mesh.position.set(x, y, z);groupOrgani.add(mesh);let organObj = { type: type, mesh: mesh, health: 100, baseColor: colorHex };activeOrgansArray.push(organObj);mesh.userData = organObj; // Omogućava prepoznavanje oružjem pri pogotku}// --- SISTEM 3D ČESTICA ZA PRSKANJE KRVI ---function spawn3DBloodSplatter(pos3D, count = 40, speedScale = 1) {const particleGeo = new THREE.SphereGeometry(0.015, 8, 8);const particleMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.2 });for(let i=0; i<count; i++) {const mesh = new THREE.Mesh(particleGeo, particleMat);mesh.position.copy(pos3D);// Smer prskanja u 3D prostorulet velocity = new THREE.Vector3((Math.random() - 0.5) * 0.1 * speedScale,(Math.random() - 0.2) * 0.12 * speedScale,(Math.random() - 0.5) * 0.1 * speedScale);groupBloodParticles.add(mesh);bloodParticlesArray.push({ mesh: mesh, velocity: velocity, alpha: 1.0 });}}// --- BALISTIČKI REAKTOR ŠTETE I NAPADA (LEVI KLIK) ---function performWeaponAttack(e) {// Ignoriši levi klik ako je preko HUD menija sa stranaif(e.clientX < 330 || e.clientX > window.innerWidth - 330) return;if(!body.isAlive) return;// Pretvaranje 2D klika miša u 3D zrak (Raycasting)mouse.x = (e.clientX / window.innerWidth) * 2 - 1;mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;raycaster.setFromCamera(mouse, camera);// Provera pogodaka nad svim vidljivim slojevima organa i koželet targetsToIntersect = [];if(activeLayers.organi) groupOrgani.children.forEach(c => targetsToIntersect.push(c));if(activeLayers.koza) groupKoza.children.forEach(c => targetsToIntersect.push(c));const intersects = raycaster.intersectObjects(targetsToIntersect);if(intersects.length > 0) {let hitPoint = intersects[0].point;let hitObject = intersects[0].object;logToConsole(💥 HIT: Iskošen pogodak oružjem [${activeWeapon.toUpperCase()}] u 3D prostoru.);// Obračun štete u zavisnosti od izabranog oružjaif(activeWeapon === 'knife') {body.hp = Math.max(0, body.hp - 5);spawn3DBloodSplatter(hitPoint, 15, 0.5);} else if(activeWeapon === 'pistol') {body.hp = Math.max(0, body.hp - 15);spawn3DBloodSplatter(hitPoint, 35, 1.2);} else if(activeWeapon === 'ak47') {body.hp = Math.max(0, body.hp - 35);spawn3DBloodSplatter(hitPoint, 55, 1.6);// Dodatni rafalni ehosetTimeout(() => spawn3DBloodSplatter(hitPoint, 20, 1.0), 80);} else if(activeWeapon === 'rpg') {body.hp = Math.max(0, body.hp - 95);spawn3DBloodSplatter(hitPoint, 150, 3.0); // Masivna 3D eksplozija krvi// Uništi sve unutrašnje organe u bliziniactiveOrgansArray.forEach(o => { o.health = 0; o.mesh.material.color.setHex(0x1e293b); });logToConsole("🚀 RPG DETONACIJA: Katastrofalno razaranje svih 3D bioloških slojeva!");} else if(activeWeapon === 'crossbow') {body.hp = Math.max(0, body.hp - 20);spawn3DBloodSplatter(hitPoint, 20, 0.8);}// Ako je pogođen konkretan 3D model organaif(hitObject.userData && hitObject.userData.type) {let organ = hitObject.userData;organ.health = Math.max(0, organ.health - 40);logToConsole(🎯 OŠTEĆENJE: [${organ.type.toUpperCase()}] integritet pao na ${organ.health}%);if(organ.health === 0) {organ.mesh.material.color.setHex(0x334155); // Promeni boju tkiva u mrtvu sivuspawn3DBloodSplatter(hitPoint, 40, 1.5);}}// Provera smrtiif(body.hp <= 0) {body.isAlive = false; body.bpm = 0;logToConsole("💀 SMRT: Životne funkcije 3D subjekta su ugašene.");}document.getElementById('hud-hp').innerText = body.hp + "%";document.getElementById('hud-bpm').innerText = body.bpm + " BPM";}}// --- UPRAVLJANJE INTERFEJSOM (Dugmad i Slojevi) ---function setupInterfaceEvents() {setupLayerBtn('layer-skelet', 'skelet', groupSkelet);setupLayerBtn('layer-krvotok', 'krvotok', groupKrvotok);setupLayerBtn('layer-organi', 'organi', groupOrgani);setupLayerBtn('layer-koza', 'koza', groupKoza);setupWeaponBtn('weap-knife', 'knife', 'NOŽ');setupWeaponBtn('weap-pistol', 'pistol', 'PIŠTOLJ 9MM');setupWeaponBtn('weap-ak47', 'ak47', 'AK-47');setupWeaponBtn('weap-rpg', 'rpg', 'RPG RAKETA');setupWeaponBtn('weap-crossbow', 'crossbow', 'SAMOSTREL');document.getElementById('add-heart').onclick = () => { spawn3DOrganModel('Sintetičko Srce', 0, 0.2, 0.1, 0xef4444, 'sphere'); logToConsole("❤️ Klonirano novo operativno 3D srce."); };document.getElementById('add-lungs').onclick = () => { spawn3DOrganModel('Sintetičko Pluće', 0.15, -0.2, 0, 0xf472b6, 'cylinder'); logToConsole("🫁 Klonirano novo operativno 3D plućno tkivo."); };document.getElementById('reset-btn').onclick = () => hardReset();}function setupLayerBtn(id, property, threeGroup) {let btn = document.getElementById(id);btn.onclick = () => {activeLayers[property] = !activeLayers[property];btn.classList.toggle('btn-active', activeLayers[property]);threeGroup.visible = activeLayers[property]; // Pali/gasi vidljivost grupe u pravom 3D prostorulogToConsole(Sloj [${property.toUpperCase()}] vidljivost: ${activeLayers[property]});};}function setupWeaponBtn(id, weaponType, hudText) {let btn = document.getElementById(id);btn.onclick = () => {document.querySelectorAll('.weapon-grid .btn').forEach(b => b.classList.remove('btn-active'));btn.classList.add('btn-active');activeWeapon = weaponType;document.getElementById('hud-weapon').innerText = hudText;};}function hardReset() {body = { hp: 100, bpm: 72, isAlive: true };document.getElementById('hud-hp').innerText = "100%";document.getElementById('hud-bpm').innerText = "72 BPM";// Čišćenje čestica krviwhile(groupBloodParticles.children.length > 0) groupBloodParticles.remove(groupBloodParticles.children[0]);bloodParticlesArray = [];generateHuman3DAssets();logToConsole("🔄 POTPUNI REBOOT: Svi 3D WebGL slojevi i PBR materijali su regenerisani.");}function logToConsole(msg) {const box = document.getElementById('console-log');if(box) { box.innerHTML += <div>> ${msg}</div>; box.scrollTop = box.scrollHeight; }}function onWindowResize() {camera.aspect = window.innerWidth / window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth, window.innerHeight);}// --- GLAVNA ANIMACIONA PETLJA (60 FPS RENDERING ENGINE) ---function animateLoop() {requestAnimationFrame(animateLoop);let time = clock.getElapsedTime();// Glatko ažuriranje 3D kamere (OrbitControls inercija)controls.update();// 1. Fizika i simulacija 3D čestica krvi u prostorufor(let i = bloodParticlesArray.length - 1; i >= 0; i--) {let p = bloodParticlesArray[i];p.velocity.y -= 0.003; // 3D Gravitacija vuče čestice nadolep.mesh.position.add(p.velocity);p.alpha -= 0.015;// Ako čestica padne ispod nivoa nogu, ukloni jeif(p.mesh.position.y < -1.8 || p.alpha <= 0) {groupBloodParticles.remove(p.mesh);bloodParticlesArray.splice(i, 1);}}// 2. Organske 3D animacije (Pulsiranje i disanje unutrašnjih modela)if(body.isAlive && activeLayers.organi) {activeOrgansArray.forEach(o => {if(o.type === 'Srce' && o.health > 0) {// Prava trodimenzionalna pulsacija srca pomoću matematičkog sinusalet s = 1.0 + Math.sin(Date.now() * 0.008) * 0.06;o.mesh.scale.set(s, s, s);} else if(o.type.includes('Pluće') && o.health > 0) {// Trodimenzionalno širenje pluća tokom disanjalet s = 1.0 + Math.sin(Date.now() * 0.003) * 0.03;o.mesh.scale.set(s, 1.0, s);}});}// Renderovanje 3D scene kroz grafičku karticurenderer.render(scene, camera);}// Pokretanje motora igre nakon učitavanjawindow.onload = init3DEngine;
+        // --- MATEMATIČKI ALGORITAM ZA PRAVU 3D PROJEKCIJU KOORDINATA ---
+        function project3D(x, y, z) {
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+Use code with caution.let y2 = y * cosX - z1 * sinX;let z2 = y * sinX + z1 * cosX;let zoom = 190;let distance = 4.0;let fov = zoom / (distance + z2);return { x: body.x + x1 * fov, y: body.y - y2 * fov, depth: z2 };}// --- SISTEM DINAMIČKIH ČESTICA KRVI ---function triggerBloodSpurt(x, y, intensity, type = 'normal') {let count = intensity * 15;let color = type === 'toxic' ? '#16a34a' : '#dc2626';for(let i=0; i<count; i++) {let angle = Math.random() * Math.PI * 2;let speed = Math.random() * 7 + 2;bloodParticles.push({x: x, y: y,vx: Math.cos(angle) * speed,vy: Math.sin(angle) * speed - 2.5,r: Math.random() * 4.5 + 1.5,alpha: 1.0,color: color});}}// --- BALISTIČKI REAKTOR ŠTETE (LEVI KLIK) ---window.addEventListener('mousedown', (e) => {if(e.button === 2) { // Desni klik pokreće rotacijuisRightDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; return;}// Ignoriši klik ako je preko interfejsaif (e.clientX < 330 || e.clientX > width - 330) return;if (!body.isAlive) return;let targetX = e.clientX;let targetY = e.clientY;logToConsole(💥 FORENZIKA: Korišćen [${activeWeapon.toUpperCase()}] na subjektu.);if(activeWeapon === 'knife') {body.hp = Math.max(0, body.hp - 5);triggerBloodSpurt(targetX, targetY, 2);checkOrganDamage(targetX, targetY, 15);} else if(activeWeapon === 'pistol') {body.hp = Math.max(0, body.hp - 15);triggerBloodSpurt(targetX, targetY, 5);checkOrganDamage(targetX, targetY, 25);} else if(activeWeapon === 'ak47') {body.hp = Math.max(0, body.hp - 35);triggerBloodSpurt(targetX, targetY, 8);triggerBloodSpurt(targetX + 8, targetY - 5, 4);checkOrganDamage(targetX, targetY, 40);} else if(activeWeapon === 'rpg') {body.hp = Math.max(0, body.hp - 95);triggerBloodSpurt(targetX, targetY, 30);organs.forEach(o => { o.health = Math.max(0, o.health - 90); o.color = '#334155'; });logToConsole("🚀 RPG DETONACIJA: Katastrofalna termobarična šteta na svim organima!");} else if(activeWeapon === 'crossbow') {body.hp = Math.max(0, body.hp - 20);triggerBloodSpurt(targetX, targetY, 3.5);checkOrganDamage(targetX, targetY, 30);}if(body.hp <= 0) { body.isAlive = false; body.bpm = 0; logToConsole("💀 STATUS: Subjekat je preminuo usled uništenja vitalnih slojeva."); }document.getElementById('hud-hp').innerText = body.hp + "%";document.getElementById('hud-bpm').innerText = body.bpm + " BPM";});function checkOrganDamage(screenX, screenY, damage) {organs.forEach(o => {let proj = project3D(o.cx, o.cy, o.cz);let dist = Math.hypot(screenX - proj.x, screenY - proj.y);if(dist < 55) {o.health = Math.max(0, o.health - damage);logToConsole(🎯 TRAUMA: Pogođen [${o.type.toUpperCase()}]! Zdravlje tkiva: ${o.health}%);if(o.health === 0) {o.color = '#475569'; // Tkivo odumire i menja boju pod balistikomtriggerBloodSpurt(proj.x, proj.y, 12);}}});}// --- UPRAVLJANJE INTERFEJSOM (Dugmad i Slušaoci) ---window.addEventListener('mousemove', (e) => {if (!isRightDragging) return;let dx = e.clientX - lastMouseX; let dy = e.clientY - lastMouseY;rotY += dx * 0.007; rotX += dy * 0.007;lastMouseX = e.clientX; lastMouseY = e.clientY;});window.addEventListener('mouseup', () => isRightDragging = false);window.addEventListener('contextmenu', (e) => e.preventDefault()); // Gasi desni klik meniwindow.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; });function setupInterfaceEvents() {setupLayerBtn('layer-skelet', 'skelet');setupLayerBtn('layer-krvotok', 'krvotok');setupLayerBtn('layer-organi', 'organi');setupLayerBtn('layer-koza', 'koza');setupWeaponBtn('weap-knife', 'knife', 'NOŽ');setupWeaponBtn('weap-pistol', 'pistol', 'PIŠTOLJ 9MM');setupWeaponBtn('weap-ak47', 'ak47', 'AK-47');setupWeaponBtn('weap-rpg', 'rpg', 'RPG RAKETA');setupWeaponBtn('weap-crossbow', 'crossbow', 'SAMOSTREL');document.getElementById('add-heart').onclick = () => { spawnOrganAsset('Srce', 0, 0.4, 0, '#b91c1c'); logToConsole("❤️ Klonirano novo unutrašnje srce."); };document.getElementById('add-lungs').onclick = () => { spawnOrganAsset('Pluća', 0.25, 0.5, 0, '#f472b6'); logToConsole("🫁 Klonirano novo plućno krilo."); };document.getElementById('reset-btn').onclick = () => hardReset();}function setupLayerBtn(id, property) {let btn = document.getElementById(id);btn.onclick = () => {activeLayers[property] = !activeLayers[property];btn.classList.toggle('btn-active', activeLayers[property]);};}function setupWeaponBtn(id, weaponType, hudText) {let btn = document.getElementById(id);btn.onclick = () => {document.querySelectorAll('.weapon-grid .btn').forEach(b => b.classList.remove('btn-active'));btn.classList.add('btn-active');activeWeapon = weaponType;document.getElementById('hud-weapon').innerText = hudText;};}function hardReset() {body = { hp: 100, bpm: 72, isAlive: true, x: width / 2, y: height / 2 - 30 };bloodParticles = [];document.getElementById('hud-hp').innerText = "100%";document.getElementById('hud-bpm').innerText = "72 BPM";buildFullAnatomyAssets();logToConsole("🔄 SISTEM: Kompletan 3D rekonstrukcioni proces završen.");}function logToConsole(msg) {const box = document.getElementById('console-log');if(box) { box.innerHTML += <div>> ${msg}</div>; box.scrollTop = box.scrollHeight; }}// --- ULTRA BRZI RENDERER SA 3D Z-BUFFER SORTIRANJEM (60 FPS) ---function renderEngine() {ctx.fillStyle = '#ffffff';ctx.fillRect(0, 0, width, height);// 1. Fizika i padanje čestica krvifor(let i = bloodParticles.length - 1; i >= 0; i--) {let p = bloodParticles[i];p.vy += 0.25; p.x += p.vx; p.y += p.vy; p.alpha -= 0.015;if(p.y > height) { p.y = height; p.vx = 0; p.vy = 0; }if(p.alpha <= 0) { bloodParticles.splice(i, 1); continue; }ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha;ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();}ctx.globalAlpha = 1.0;// 2. Sakupljanje svih 3D elemenata radi dubinskog slaganja (Z-Sort)let renderList = [];if(activeLayers.koza) {skinMesh.forEach(p => {let proj = project3D(p.x, p.y, p.z);renderList.push({ x: proj.x, y: proj.y, depth: proj.depth, color: p.color, r: p.r });});}if(activeLayers.skelet) {skeletalMesh.forEach(p => {let proj = project3D(p.x, p.y, p.z);renderList.push({ x: proj.x, y: proj.y, depth: proj.depth, color: p.color, r: p.r });});}if(activeLayers.krvotok) {bloodVesselMesh.forEach(p => {let proj = project3D(p.x, p.y, p.z);renderList.push({ x: proj.x, y: proj.y, depth: proj.depth, color: p.color, r: p.r });});}if(activeLayers.organi) {organs.forEach(o => {let pulse = (o.type === 'Srce' && body.isAlive) ? 1 + Math.sin(Date.now() * 0.007) * 0.06 : 1;o.points.forEach(p => {let proj = project3D(p.x * pulse, p.y, p.z * pulse);renderList.push({ x: proj.x, y: proj.y, depth: proj.depth, color: o.color, r: 2.5 });});});}// 3. Z-Buffer Sortiranje: Crta zadnje tačke prve, a prednje preko njih za 3D efekatrenderList.sort((a, b) => b.depth - a.depth);// 4. Ispis tačaka na ekranrenderList.forEach(p => {ctx.fillStyle = p.color;ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();});requestAnimationFrame(renderEngine);}window.onload = () => { setupInterfaceEvents(); hardReset(); renderEngine(); };
