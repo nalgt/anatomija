@@ -3,93 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANATOM-X: Absolute Independent Engine</title>
+    <title>BIO-SANDBOX: Weapon Arsenal & Multi-Layer Engine</title>
     <link rel="icon" href="data:,">
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background-color: #020205;
+            overflow: hidden; background-color: #ffffff; /* Čisto bela pozadina */
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: #38bdf8; user-select: none;
+            color: #0f172a; user-select: none;
         }
         #view-container { width: 100%; height: 100%; position: absolute; z-index: 1; }
         .hud {
             position: absolute; z-index: 10;
-            background: rgba(4, 8, 20, 0.85);
+            background: rgba(255, 255, 255, 0.94);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(56, 189, 248, 0.2);
-            border-radius: 10px; padding: 20px;
-            box-shadow: 0 0 30px rgba(0, 150, 255, 0.2);
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            border-radius: 12px; padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            max-height: 85vh; overflow-y: auto;
         }
-        #ui-left { top: 20px; left: 20px; width: 300px; }
+        #ui-left { top: 20px; left: 20px; width: 280px; }
         #ui-right { top: 20px; right: 20px; width: 300px; }
         #ui-bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: 40%; display: flex; justify-content: space-around; text-align: center; }
-        h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 15px 0; color: #ff3366; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px; }
-        .title { font-size: 10px; color: #64748b; text-transform: uppercase; margin: 15px 0 5px 0; font-weight: bold; }
+        
+        h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 12px 0; color: #dc2626; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 6px; font-weight: 800; }
+        .title { font-size: 10px; color: #475569; text-transform: uppercase; margin: 12px 0 6px 0; font-weight: bold; letter-spacing: 0.5px; }
+        
         .btn {
-            width: 100%; background: #1e40af; color: white; border: 1px solid #3b82f6;
-            padding: 12px; margin-bottom: 8px; border-radius: 6px; font-weight: bold;
-            cursor: pointer; font-family: monospace; text-align: left; transition: all 0.2s;
+            width: 100%; background: #2563eb; color: white; border: none;
+            padding: 10px; margin-bottom: 6px; border-radius: 6px; font-weight: bold;
+            cursor: pointer; font-family: monospace; text-align: left; transition: all 0.15s; font-size: 11px;
         }
-        .btn:hover { background: #2563eb; box-shadow: 0 0 15px #38bdf8; transform: translateY(-1px); }
-        .btn-danger { background: #7f1d1d; border-color: #ef4444; }
-        .btn-danger:hover { background: #b91c1c; box-shadow: 0 0 15px #ef4444; }
-        .spec-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.1); padding: 10px; border-radius: 6px; font-size: 12px; }
-        #console-log { height: 110px; overflow-y: auto; background: rgba(0,0,0,0.5); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; color: #94a3b8; }
-        .stat-val { font-size: 24px; font-weight: bold; color: #10b981; margin-top: 5px; }
-        .dead { color: #ef4444 !important; animation: pulse 0.5s infinite alternate; }
-        .hint { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: 11px; color: #64748b; background: rgba(0,0,0,0.6); padding: 6px 15px; border-radius: 20px; pointer-events: none; border: 1px solid rgba(56,189,248,0.1); }
-        @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+        .btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-weapon { background: #475569; }
+        .btn-weapon:hover { background: #334155; }
+        .btn-weapon.active { background: #dc2626; box-shadow: 0 0 10px rgba(220,38,38,0.4); }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        
+        .layer-checkbox { display: flex; align-items: center; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; }
+        .layer-checkbox input { margin-right: 8px; width: 15px; height: 15px; cursor: pointer; }
+        
+        .spec-box { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); padding: 10px; border-radius: 6px; font-size: 11px; color: #1e293b; line-height: 1.4; }
+        #console-log { height: 90px; overflow-y: auto; background: rgba(0,0,0,0.04); border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px; color: #475569; }
+        .stat-val { font-size: 22px; font-weight: bold; color: #16a34a; margin-top: 4px; }
+        .dead { color: #dc2626 !important; animation: red-pulse 0.4s infinite alternate; }
+        .hint { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: 11px; color: #475569; background: rgba(255,255,255,0.85); padding: 6px 15px; border-radius: 20px; pointer-events: none; border: 1px solid rgba(0,0,0,0.1); font-weight: 600; }
+        @keyframes red-pulse { from { opacity: 1; } to { opacity: 0.5; } }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div class="hint">DRŽITE LEVI KLIK I PREVLAČITE ZA ROTIRANJE 3D BIOLOŠKE MATRICE</div>
+    <div class="hint">IZABERI ORUŽJE DESNO // KLIKNI ILI PREVRECI PREKO TELA ZA MASAKR // TOČKIĆ ROTIRA OSVRT</div>
     <canvas id="view-container"></canvas>
 
-    <!-- LEVI HUD -->
+    <!-- LEVI PANEL: Slojevi i selekcija -->
     <div class="hud" id="ui-left">
-        <h2>Sinteza Biologije</h2>
-        <div class="title">Generiši 3D Mesh visoke gustine:</div>
-        <button class="btn" id="add-heart">❤️ Kloniraj Srce (Shader Alpha)</button>
-        <button class="btn" id="add-lungs">🫁 Kloniraj Pluća (Shader Alpha)</button>
-        <button class="btn" id="add-liver">🪵 Kloniraj Jetru (Shader Alpha)</button>
-        <div class="title" style="margin-top:20px;">Selektovano Tkivo:</div>
+        <h2>Slojevi Tela (Layers)</h2>
+        <label class="layer-checkbox"><input type="checkbox" id="layer-skin" checked> Visceralna Koža</label>
+        <label class="layer-checkbox"><input type="checkbox" id="layer-skeleton" checked> Koštani Skelet</label>
+        <label class="layer-checkbox"><input type="checkbox" id="layer-vessels" checked> Vaskularni Krvotok</label>
+        <label class="layer-checkbox"><input type="checkbox" id="layer-organs" checked> Unutrašnji Organi</label>
+
+        <div class="title" style="margin-top:15px;">Hirurški Alati:</div>
+        <button class="btn" id="add-heart">❤️ Kloniraj Novo Srce</button>
+        <button class="btn" id="add-lungs">🫁 Kloniraj Pluća</button>
+        <button class="btn" id="add-liver">🪵 Kloniraj Jetru</button>
+        
+        <div class="title" style="margin-top:15px;">Fokusirano Tkivo:</div>
         <div id="selection-box">
-            <div class="spec-box" style="color:#64748b;">Kliknite direktno na organ u 3D prostoru za hirurške modifikacije.</div>
+            <div class="spec-box" style="color:#64748b;">Klikni na organ za selekciju (kada je aktivan alat "Šaka").</div>
         </div>
-        <button class="btn btn-danger" id="vaporize-btn" style="margin-top:15px;">Vaporizuj selektovani organ</button>
+        <button class="btn btn-danger" id="vaporize-btn" style="margin-top:10px;">Vaporizuj organ</button>
     </div>
 
-    <!-- DESNI HUD -->
+    <!-- DESNI PANEL: Oružje i patologija -->
     <div class="hud" id="ui-right">
-        <h2>Patogeni Core</h2>
-        <div class="title">Simulacija ćelijskih anomalija:</div>
-        <button class="btn btn-danger" id="infect-infarkt">Napad: Miokardni Infarkt</button>
-        <button class="btn btn-danger" id="infect-sepsis">Infekcija: Akutna Sepsa</button>
-        <button class="btn" id="reset-btn" style="background:#334155; border-color:#64748b;">🔄 Kompletna Regeneracija</button>
-        <div class="title" style="margin-top:20px;">Sistemska Konzola:</div>
+        <h2>Arsenal Oružja</h2>
+        <button class="btn btn-weapon active" id="weap-hand">✋ Alat: Šaka (Hvatanje/Bacanje)</button>
+        <button class="btn btn-weapon" id="weap-knife">🔪 Nož (Rezanje/Kidanje)</button>
+        <button class="btn btn-weapon" id="weap-pistol">🔫 Pištolj (9mm Prostrel)</button>
+        <button class="btn btn-weapon" id="weap-ak47">💥 AK-47 (Automatski Rafal)</button>
+        <button class="btn btn-weapon" id="weap-crossbow">🏹 Samostrel (Zabodene Strele)</button>
+        <button class="btn btn-weapon" id="weap-rpg">🚀 RPG-7 (Destrukcija/Eksplozija)</button>
+
+        <div class="title" style="margin-top:15px;">Sistemska Konzola:</div>
         <div id="console-log"></div>
+        <button class="btn" id="reset-btn" style="background:#475569; color: white; margin-top:10px;">🔄 Kompletna Regeneracija</button>
     </div>
 
-    <!-- DONJI HUD -->
+    <!-- DONJI PANEL: Vitalni znaci -->
     <div class="hud" id="ui-bottom">
         <div style="width:33%;">
-            <div style="font-size:10px; color:#64748b; font-weight:bold;">PACIJENT</div>
+            <div style="font-size:10px; color:#475569; font-weight:bold;">SUBJEKAT</div>
             <div class="stat-val" id="hud-state">OPERATIVAN</div>
         </div>
         <div style="width:33%;">
-            <div style="font-size:10px; color:#64748b; font-weight:bold;">PULS (BPM)</div>
+            <div style="font-size:10px; color:#475569; font-weight:bold;">PULS (BPM)</div>
             <div class="stat-val" id="hud-bpm">72</div>
         </div>
         <div style="width:33%;">
-            <div style="font-size:10px; color:#64748b; font-weight:bold;">ZASIĆENOST O2</div>
+            <div style="font-size:10px; color:#475569; font-weight:bold;">ZASIĆENOST O2</div>
             <div class="stat-val" id="hud-o2">98%</div>
         </div>
     </div>
 
     <script>
-        // --- 100% NEZAVISNI 3D HARDWARE RENDERING ENGINE (BEZ EKSTERNIH SKRIPTI) ---
         const canvas = document.getElementById('view-container');
         const ctx = canvas.getContext('2d');
 
@@ -97,118 +118,73 @@
         let height = canvas.height = window.innerHeight;
 
         let sim = { bpm: 72, o2: 98, hp: 100, isAlive: true, state: "OPERATIVAN" };
-        let rotX = 0.4, rotY = 0.6, isDragging = false, lastX = 0, lastY = 0;
+        
+        // Podešavanja vidljivosti slojeva čoveka
+        let layers = { skin: true, skeleton: true, vessels: true, organs: true };
+
+        // Izabrano oružje
+        let activeWeapon = 'hand'; // hand, knife, pistol, ak47, crossbow, rpg
+
+        // Fizika za celo Ragdoll telo
+        let bodyPhys = { x: width / 2, y: height / 2 - 80, vx: 0, vy: 0, radius: 180 };
+
+        let rotX = 0.4, rotY = 0.6;
+        let isDragging = false, dragTarget = null;
+        let mouseX = 0, mouseY = 0, lastMouseX = 0, lastMouseY = 0;
+
         let organs = [], targeted = null;
+        let bloodParticles = [];
+        let projectiles = []; // Projektili (Rakete, strele)
+        let stuckArrows = []; // Strele koje su ostale zabodene u telu
 
-        // Matematički generator ultra-detaljnih 3D tačaka za organe (Z-Buffer Shading simulacija)
-        function generateMeshPoints(type, cx, cy, cz) {
-            let pts = [];
-            let count = type === 'Srce' ? 350 : type === 'Pluća' ? 450 : 400;
+        // Matematički modeli skeleta i krvotoka (3D tačke)
+        let skeletonPoints = [];
+        let vesselPoints = [];
+        let skinPoints = [];
+
+        const GRAVITY = 0.4;
+        const BOUNCE = -0.55;
+        const FRICTION = 0.97;
+
+        // Generisanje 3D tačaka za sisteme slojeva tela
+        function buildHumanLayers() {
+            skeletonPoints = []; vesselPoints = []; skinPoints = [];
             
-            for(let i=0; i<count; i++) {
-                let theta = Math.random() * Math.PI * 2;
-                let phi = Math.random() * Math.PI;
-                let rx = 0.35, ry = 0.35, rz = 0.35;
-
-                if (type === 'Srce') {
-                    // Deformacija sfere u asimetrično srce preko sinusoida
-                    ry = 0.45; rx = 0.35 * (1 + Math.cos(phi)*0.3);
-                } else if (type === 'Pluća') {
-                    ry = 0.6; rx = 0.28;
-                } else {
-                    rx = 0.5; ry = 0.3; rz = 0.4; // Pljosnata jetra
+            // Rešetka kostiju (Gusta struktura)
+            for(let y = -1.5; y <= 1.5; y += 0.1) {
+                skeletonPoints.push({x: 0, y: y, z: 0, type: 'spine'}); // Kičma
+                if(y > -0.2 && y < 0.8) {
+                    for(let r = 0.1; r <= 0.5; r += 0.15) {
+                        skeletonPoints.push({x: Math.sin(r*4)*0.4, y: y, z: Math.cos(r*4)*0.3, type: 'rib'}); // Rebra
+                        skeletonPoints.push({x: -Math.sin(r*4)*0.4, y: y, z: Math.cos(r*4)*0.3, type: 'rib'});
+                    }
                 }
+            }
+            // Lobanja
+            for(let i=0; i<60; i++) {
+                let th = Math.random()*Math.PI*2, ph = Math.random()*Math.PI;
+                skeletonPoints.push({x: 0.3*Math.sin(ph)*Math.cos(th), y: 1.6 + 0.3*Math.cos(ph), z: 0.2*Math.sin(ph)*Math.sin(th), type: 'skull'});
+            }
 
-                pts.push({
-                    x: cx + rx * Math.sin(phi) * Math.cos(theta),
-                    y: cy + ry * Math.cos(phi),
-                    z: cz + rz * Math.sin(phi) * Math.sin(theta),
-                    nx: Math.sin(phi) * Math.cos(theta), // Normala za svetlost
-                    ny: Math.cos(phi),
-                    nz: Math.sin(phi) * Math.sin(theta)
+            // Kapilari i krvni sudovi (Vessels)
+            for(let i=0; i<250; i++) {
+                vesselPoints.push({
+                    x: (Math.random() - 0.5) * 0.9,
+                    y: (Math.random() - 0.5) * 2.8,
+                    z: (Math.random() - 0.5) * 0.4
                 });
             }
-            return pts;
-        }
 
-        function project3D(x, y, z) {
-            // Rotacija oko Y ose
-            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-            let x1 = x * cosY - z * sinY;
-            let z1 = x * sinY + z * cosY;
-
-            // Rotacija oko X ose
-            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-            let y2 = y * cosX - z1 * sinX;
-            let z2 = y * sinX + z1 * cosX;
-
-            // Perspektivna matrica
-            let distance = 3.5;
-            let scale = 220;
-            let fov = scale / (distance + z2);
-            
-            return {
-                x: width / 2 + x1 * fov,
-                y: height / 2 - y2 * fov,
-                depth: z2
-            };
-        }
-
-        function spawnOrgan(type, x, y) {
-            if(!sim.isAlive) return;
-            let cx = x !== undefined ? x : (Math.random() - 0.5) * 1.5;
-            let cy = y !== undefined ? y : (Math.random() - 0.5) * 1.8;
-            let cz = (Math.random() - 0.5) * 0.4;
-
-            let color = type === 'Srce' ? '#ef4444' : type === 'Pluća' ? '#ec4899' : '#b91c1c';
-            
-            let organ = {
-                id: Math.random().toString(),
-                type: type,
-                cx: cx, cy: cy, cz: cz,
-                color: color,
-                baseColor: color,
-                health: 100.0,
-                scale: 1.0,
-                isSick: false,
-                points: generateMeshPoints(type, cx, cy, cz)
-            };
-
-            organs.push(organ);
-            logToConsole(`SINTETIZOVAN ASET: [${type.toUpperCase()}] // VRAM Alokacija uspešna.`);
-        }
-
-        // Provera klika na 3D objekat (Raycast zamena preko 2D proksimiti matrice)
-        window.addEventListener('click', (e) => {
-            if (e.clientX < 320 || e.clientX > width - 320) return; // Ignoriši klik ako je preko menija
-            
-            let clicked = null;
-            let minDist = 40; // Radijus klika u pikselima
-
-            organs.forEach(o => {
-                let proj = project3D(o.cx, o.cy, o.cz);
-                let d = Math.hypot(e.clientX - proj.x, e.clientY - proj.y);
-                if (d < minDist) {
-                    clicked = o;
-                    minDist = d;
-                }
-            });
-
-            if (clicked) {
-                targeted = clicked;
-                logToConsole(`SELEKCIJA: Uhvaćena bio-matrica [${targeted.type.toUpperCase()}]`);
-                renderSelectionUi();
+            // Spoljna koža (Prozirna mreža tačaka omotača)
+            for(let i=0; i<300; i++) {
+                let th = Math.random()*Math.PI*2;
+                let y = (Math.random() - 0.5) * 3.0;
+                let rad = 0.5 * (1.5 - Math.abs(y)*0.2); // Anatomsko sužavanje ka nogama i vratu
+                if(y > 1.3) rad = 0.35; // Glava
+                skinPoints.push({ x: rad * Math.cos(th), y: y, z: rad * Math.sin(th) });
             }
-        </script>
-    </div> <!-- Bezbednosno zatvaranje preostalih tagova i prelazak na puni script -->
+        }
 
-    <script>
-        // Nastavak čistog koda bez HTML interfejs grešaka
-        function renderSelectionUi() {
-            const box = document.getElementById('selection-box');
-            if(!targeted) return;
-
-            box.innerHTML = `
-                <div class="spec-box">
-                    <strong>STRUKTURA:</strong> ${targeted.type.toUpperCase()}<br>
-Use code with caution.INTEGRITET ĆELIJA: ${targeted.health.toFixed(1)}%STANJE: ${targeted.isSick ? 'KONTAMINIRANO' : 'NOMINALNO'}UVEĆANJE (HIPERTROFIJA):`;document.getElementById('scale-slider').oninput = (e) => {if(targeted) {targeted.scale = parseFloat(e.target.value);// Dinamičko skaliranje svih 3D tačaka unutar mesh-a organatargeted.points = generateMeshPoints(targeted.type, targeted.cx, targeted.cy, targeted.cz);targeted.points.forEach(p => {p.x = targeted.cx + (p.x - targeted.cx) * targeted.scale;p.y = targeted.cy + (p.y - targeted.cy) * targeted.scale;p.z = targeted.cz + (p.z - targeted.cz) * targeted.scale;});}};}function vaporizeOrgan() {if(!targeted) { logToConsole("SISTEM: Kliknite na organ za odstranjivanje."); return; }logToConsole(DESTRUKCIJA: Odstranjen [${targeted.type.toUpperCase()}]);organs = organs.filter(o => o.id !== targeted.id);targeted = null;document.getElementById('selection-box').innerHTML = <div class="spec-box" style="color:#64748b;">Kliknite direktno na organ u 3D prostoru za hirurške modifikacije.</div>;}function triggerDisease(type) {if(!sim.isAlive || organs.length === 0) return;logToConsole(AGENS UKLJUČEN: Kontaminacija sistemom [${type.toUpperCase()}]);if(type === 'Infarkt') {organs.forEach(o => {if(o.type === 'Srce') {o.isSick = true; o.health = 5.0; o.color = '#11050a'; // Ćelijska smrt tkiva (ugljeno crna)}});sim.bpm = 26;} else if(type === 'Sepsis') {organs.forEach(o => { o.isSick = true; o.color = '#2d3a14'; }); // Trulež (zelena nekroza)sim.hp = 30;}if(targeted) renderSelectionUi();}function runBiologyEngine() {if(!sim.isAlive) return;let hearts = organs.filter(o => o.type === 'Srce' && o.health > 20).length;let lungs = organs.filter(o => o.type === 'Pluća' && o.health > 20).length;if (hearts === 0) { sim.bpm = Math.max(0, sim.bpm - 6); sim.hp -= 5; }else if (sim.bpm < 60) sim.bpm += 1;if (lungs === 0) { sim.o2 = Math.max(0, sim.o2 - 5); sim.hp -= 4; }else { sim.o2 = Math.min(100, 75 + (lungs * 12)); }if (sim.hp <= 0 || sim.bpm === 0 || sim.o2 === 0) {sim.isAlive = false; sim.bpm = 0; sim.o2 = 0; sim.state = "SMRT / PREKID";document.getElementById('hud-state').className = "stat-val dead";logToConsole("💀 CRKNUT: Potpuni prekid električnih i vitalnih funkcija organizma.");}document.getElementById('hud-bpm').innerText = sim.bpm;document.getElementById('hud-o2').innerText = sim.o2 + "%";document.getElementById('hud-state').innerText = sim.state;if(sim.isAlive && sim.hp < 45) {document.getElementById('hud-state').innerText = "KRITIČNO";document.getElementById('hud-state').className = "stat-val dead";}}function hardReset() {organs = []; targeted = null;sim = { bpm: 72, o2: 98, hp: 100, isAlive: true, state: "OPERATIVAN" };document.getElementById('hud-state').className = "stat-val";// Izgradnja osnovne biologije tela na predefinisanim 3D osamaspawnOrgan('Srce', 0, 0.4);spawnOrgan('Pluća', -0.6, 0.5);spawnOrgan('Pluća', 0.6, 0.5);spawnOrgan('Jetra', -0.3, -0.4);document.getElementById('selection-box').innerHTML = <div class="spec-box" style="color:#64748b;">Kliknite direktno na organ u 3D prostoru za hirurške modifikacije.</div>;logToConsole("🚀 REBOOT: Nezavisni 3D WebGL emulacioni baferi podignuti.");}function logToConsole(msg) {const box = document.getElementById('console-log');if(box) { box.innerHTML += <div>> ${msg}</div>; box.scrollTop = box.scrollHeight; }}// --- MOUSE TRACKING ZA KONTROLU OKRETANJA TELA ---window.onmousedown = (e) => {if(e.clientX < 320 || e.clientX > width - 320) return;isDragging = true; lastX = e.clientX; lastY = e.clientY;};window.onmousemove = (e) => {if(!isDragging) return;let dx = e.clientX - lastX;let dy = e.clientY - lastY;rotY += dx * 0.007;rotX += dy * 0.007;lastX = e.clientX; lastY = e.clientY;};window.onmouseup = () => isDragging = false;window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };// VEZIVANJE SVIH FUNKCIJA DIREKTNO KROZ JS (Garantuje rad bez HTML 404/ReferenceErrora)document.getElementById('add-heart').onclick = () => spawnOrgan('Srce');document.getElementById('add-lungs').onclick = () => spawnOrgan('Pluća');document.getElementById('add-liver').onclick = () => spawnOrgan('Jetra');document.getElementById('vaporize-btn').onclick = vaporizeOrgan;document.getElementById('infect-infarkt').onclick = () => triggerDisease('Infarkt');document.getElementById('infect-sepsis').onclick = () => triggerDisease('Sepsis');document.getElementById('reset-btn').onclick = hardReset;// --- GLAVNA ANIMACIONA PETLJA (PIXEL SHADER EMULACIJA NA KANVASU) ---function mainLoop() {ctx.fillStyle = '#030307';ctx.fillRect(0, 0, width, height);// Dinamičko crtanje spoljnog rešetkastog ljudskog energetskog oklopa (Hologram)ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';ctx.lineWidth = 1;let bodyPoints = [{x:0, y:1.3, z:0}, {x:-0.5, y:0.9, z:0}, {x:0.5, y:0.9, z:0},{x:-0.4, y:-0.8, z:0}, {x:0.4, y:-0.8, z:0}, {x:0, y:-1.6, z:0}];ctx.beginPath();bodyPoints.forEach((p, idx) => {let proj = project3D(p.x, p.y, p.z);if(idx === 0) ctx.moveTo(proj.x, proj.y); else ctx.lineTo(proj.x, proj.y);});ctx.closePath(); ctx.stroke();// Sakupljanje svih 3D tačaka radi naprednog dubinskog sortiranja (Z-Buffer tehnika)let allRenderPoints = [];organs.forEach(o => {// Autonomna rotacija i pulsacija unutar mikro-normala samog organalet pulse = (o.type === 'Srce' && sim.bpm > 0) ? 1 + Math.sin(Date.now() * 0.005 * (sim.bpm/60)) * 0.05 : 1;o.points.forEach(p => {// Mikro rotacija tačaka oko ose organa za GTA V dinamički efekat prelivanja svetlostilet speed = 0.002;let rx = (p.x - o.cx) * Math.cos(speed) - (p.z - o.cz) * Math.sin(speed) + o.cx;let rz = (p.x - o.cx) * Math.sin(speed) + (p.z - o.cz) * Math.cos(speed) + o.cz;p.x = rx; p.z = rz;let proj = project3D(p.x, p.y, p.z);// Proračun osvetljenja (Fuzija smera svetla i normale tačke - Phong Shading aproksimacija)let lightDir = { x: 0.5, y: 0.7, z: 0.5 };let intensity = Math.max(0.2, (p.nx * lightDir.x + p.ny * lightDir.y + p.nz * lightDir.z));allRenderPoints.push({x: proj.x, y: proj.y,depth: proj.depth,color: o.color,intensity: intensity,size: Math.max(1.5, 4.5 * (3 / (3 + proj.depth))) * pulse});});});// Sortiranje po dubini (Z-Index) tako da se zadnje tačke crtaju prve, a prednje preko njih (Fotorealizam)allRenderPoints.sort((a, b) => b.depth - a.depth);// Renderovanje tačaka na ekran sa neonskim svetlosnim intenzitetomallRenderPoints.forEach(p => {ctx.fillStyle = p.color;ctx.globalAlpha = p.intensity;ctx.beginPath();ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);ctx.fill();});ctx.globalAlpha = 1.0; // Reset alpha kanala za HUDrequestAnimationFrame(mainLoop);}// Svake sekunde pokreni kalkulaciju unutrašnje biologijesetInterval(runBiologyEngine, 1000);// Pokretanje celog sistemawindow.onload = () => {hardReset();mainLoop();};
+        function generateMeshPoints(type) {
+            let pts = [];
+Use code with caution.let count = type === 'Srce' ? 220 : type === 'Pluća' ? 300 : 250;for(let i=0; i<count; i++) {let theta = Math.random() * Math.PI * 2, phi = Math.random() * Math.PI;let rx = 0.3, ry = 0.3, rz = 0.3;if (type === 'Srce') { ry = 0.4; rx = 0.3 * (1 + Math.cos(phi)*0.2); }else if (type === 'Pluća') { ry = 0.55; rx = 0.24; }else { rx = 0.45; ry = 0.26; rz = 0.35; }pts.push({ ox: rx * Math.sin(phi) * Math.cos(theta), oy: ry * Math.cos(phi), oz: rz * Math.sin(phi) * Math.sin(theta), nx: Math.sin(phi) * Math.cos(theta), ny: Math.cos(phi), nz: Math.sin(phi) * Math.sin(theta) });}return pts;}function project3D(x, y, z, centerX, centerY) {let cosY = Math.cos(rotY), sinY = Math.sin(rotY);let x1 = x * cosY - z * sinY; let z1 = x * sinY + z * cosY;let cosX = Math.cos(rotX), sinX = Math.sin(rotX);let y2 = y * cosX - z1 * sinX; let z2 = y * sinX + z1 * cosX;let scale = 190; let distance = 3.5; let fov = scale / (distance + z2);return { x: centerX + x1 * fov, y: centerY - y2 * fov, depth: z2 };}function spawnOrgan(type, lx, ly) {if(!sim.isAlive) return;let organ = { id: Math.random().toString(), type: type, ox: lx !== undefined ? lx : (Math.random() - 0.5) * 0.6, oy: ly !== undefined ? ly : (Math.random() - 0.5) * 1.0, oz: (Math.random() - 0.5) * 0.15, color: type === 'Srce' ? '#dc2626' : type === 'Pluća' ? '#db2777' : '#991b1b', health: 100.0, scale: 1.0, isSick: false, points: generateMeshPoints(type) };organs.push(organ);logToConsole(SINTETIZOVAN ORGAN: [${type.toUpperCase()}]);}function spawnBloodExplosion(x, y, count = 40, speedScale = 1, color = '#dc2626') {for(let i=0; i<count; i++) {let angle = Math.random() * Math.PI * 2;let speed = (Math.random() * 6 + 2) * speedScale;bloodParticles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - (Math.random() * 2), radius: Math.random() * 4 + 1.2, alpha: 1.0, color: color });}}// --- ORUŽANE AKTIVACIJE I PALJBA ---function fireWeapon(mx, my) {if(!sim.isAlive) return;if (activeWeapon === 'knife') {// Nož seče u malom radijusu oko mišaspawnBloodExplosion(mx, my, 8, 0.4);organs.forEach(o => {let proj = project3D(o.ox, o.oy, o.oz, bodyPhys.x, bodyPhys.y);if(Math.hypot(mx - proj.x, my - proj.y) < 45) {o.health = Math.max(0, o.health - 25);o.color = '#7f1d1d';logToConsole(🔪 REZ: Oštećeno tkivo [${o.type.toUpperCase()}]);}});}else if (activeWeapon === 'pistol' || activeWeapon === 'ak47') {// Paljba iz vatrenog oružjalet dmg = activeWeapon === 'pistol' ? 35 : 15;let count = activeWeapon === 'pistol' ? 15 : 8;spawnBloodExplosion(mx, my, count, 1.4, '#b91c1c');// Kinetički udarac metka pomera celo telobodyPhys.vx += (Math.random() - 0.5) * 5;bodyPhys.vy -= Math.random() * 4;organs.forEach(o => {let proj = project3D(o.ox, o.oy, o.oz, bodyPhys.x, bodyPhys.y);if(Math.hypot(mx - proj.x, my - proj.y) < 35) {o.health = Math.max(0, o.health - dmg);logToConsole(💥 PROSTREL: Metak probušio [${o.type.toUpperCase()}]!);}});}else if (activeWeapon === 'crossbow') {// Ispali strelu sa vrha ekrana ka mišuprojectiles.push({type: 'arrow',x: mx + (Math.random() - 0.5) * 200, y: 0,targetX: mx, targetY: my,vx: 0, vy: 15,active: true});}else if (activeWeapon === 'rpg') {// Ispali RPG raketu sa straneprojectiles.push({type: 'rocket',x: 0, y: my,targetX: mx, targetY: my,vx: 18, vy: (my - my) / 20,active: true});logToConsole(🚀 LANSIRANJE: Raketa RPG-7 je ispaljena!);}}// --- INTERAKCIJA MIŠA ---window.onmousedown = (e) => {if (e.clientX < 300 || e.clientX > width - 320) return;mouseX = e.clientX; mouseY = e.clientY;isDragging = true;if (activeWeapon === 'hand') {// Standardno hvatanje/bacanjelet clickedOrgan = null; let minDist = 35;organs.forEach(o => {let proj = project3D(o.ox, o.oy, o.oz, bodyPhys.x, bodyPhys.y);let d = Math.hypot(mouseX - proj.x, mouseY - proj.y);if (d < minDist) { clickedOrgan = o; minDist = d; }});if (clickedOrgan) { dragTarget = clickedOrgan; targeted = clickedOrgan; renderSelectionUi(); }else if (Math.hypot(mouseX - bodyPhys.x, mouseY - bodyPhys.y) < bodyPhys.radius) { dragTarget = 'body'; }else { dragTarget = 'trackball'; }} else {// Ako je izabrano oružje, odmah pucaj/secifireWeapon(mouseX, mouseY);dragTarget = activeWeapon === 'ak47' ? 'firing_auto' : null; // Omogućava rafal}lastMouseX = mouseX; lastMouseY = mouseY;};window.onmousemove = (e) => {let currentX = e.clientX; let currentY = e.clientY;let dx = currentX - lastMouseX; let dy = currentY - lastMouseY;if (isDragging) {if (dragTarget === 'body') { bodyPhys.x = currentX; bodyPhys.y = currentY; bodyPhys.vx = dx * 0.7; bodyPhys.vy = dy * 0.7; }else if (dragTarget === 'trackball') { rotY += dx * 0.007; rotX += dy * 0.007; }else if (dragTarget === 'firing_auto') { fireWeapon(currentX, currentY); // Automatski rafal AK-47 pri vučenju miša} else if (dragTarget && dragTarget !== 'knife' && dragTarget !== 'pistol' && dragTarget !== 'crossbow' && dragTarget !== 'rpg') {dragTarget.ox += dx / 185; dragTarget.oy -= dy / 185;}}lastMouseX = currentX; lastMouseY = currentY;};window.onmouseup = () => { isDragging = false; dragTarget = null; };window.onwheel = (e) => { rotY += e.deltaY * 0.001; };// --- ARSENAL / HUD EVENT VEZIVANJE ---function setWeapon(mode, btnId) {activeWeapon = mode;document.querySelectorAll('.btn-weapon').forEach(b => b.classList.remove('active'));document.getElementById(btnId).classList.add('active');logToConsole(ORUŽJE: Aktiviran [${mode.toUpperCase()}]);}document.getElementById('weap-hand').onclick = () => setWeapon('hand', 'weap-hand');document.getElementById('weap-knife').onclick = () => setWeapon('knife', 'weap-knife');document.getElementById('weap-pistol').onclick = () => setWeapon('pistol', 'weap-pistol');document.getElementById('weap-ak47').onclick = () => setWeapon('ak47', 'weap-ak47');document.getElementById('weap-crossbow').onclick = () => setWeapon('crossbow', 'weap-crossbow');document.getElementById('weap-rpg').onclick = () => setWeapon('rpg', 'weap-rpg');// Čitanje checkbox slojeva u realnom vremenufunction updateLayers() {layers.skin = document.getElementById('layer-skin').checked;layers.skeleton = document.getElementById('layer-skeleton').checked;layers.vessels = document.getElementById('layer-vessels').checked;layers.organs = document.getElementById('layer-organs').checked;}document.querySelectorAll('.layer-checkbox input').forEach(i => i.onchange = updateLayers);document.getElementById('add-heart').onclick = () => spawnOrgan('Srce');document.getElementById('add-lungs').onclick = () => spawnOrgan('Pluća');document.getElementById('add-liver').onclick = () => spawnOrgan('Jetra');document.getElementById('vaporize-btn').onclick = () => {if(!targeted) return;let proj = project3D(targeted.ox, targeted.oy, targeted.oz, bodyPhys.x, bodyPhys.y);spawnBloodExplosion(proj.x, proj.y, 40, 1);organs = organs.filter(o => o.id !== targeted.id); targeted = null;};document.getElementById('reset-btn').onclick = hardReset;function renderSelectionUi() {const box = document.getElementById('selection-box');if(!targeted) return;box.innerHTML = <div class="spec-box"><strong>ORGAN:</strong> ${targeted.type.toUpperCase()}<br><strong>INTEGRITET:</strong> ${targeted.health.toFixed(1)}%</div>;}function runBiologyEngine() {if(!sim.isAlive) return;let hearts = organs.filter(o => o.type === 'Srce' && o.health > 15).length;let lungs = organs.filter(o => o.type === 'Pluća' && o.health > 15).length;if (hearts === 0) { sim.bpm = Math.max(0, sim.bpm - 12); sim.hp -= 10; }if (lungs === 0) { sim.o2 = Math.max(0, sim.o2 - 10); sim.hp -= 8; }// Ako organi krvare, kaplji krv nadole iz njihorgans.forEach(o => {if(o.health < 60 && Math.random() > 0.5) {let proj = project3D(o.ox, o.oy, o.oz, bodyPhys.x, bodyPhys.y);spawnBloodExplosion(proj.x, proj.y, 1, 0.3, '#991b1b');}});if (sim.hp <= 0 || sim.bpm === 0 || sim.o2 === 0) {sim.isAlive = false; sim.bpm = 0; sim.o2 = 0; sim.state = "DESTRUKCIJA / SMRT";document.getElementById('hud-state').className = "stat-val dead";logToConsole("💀 TELEMETRIJA: Životne funkcije ugašene usled masivnih trauma.");}document.getElementById('hud-bpm').innerText = sim.bpm;document.getElementById('hud-o2').innerText = sim.o2 + "%";document.getElementById('hud-state').innerText = sim.state;}function hardReset() {organs = []; targeted = null; bloodParticles = []; projectiles = []; stuckArrows = [];sim = { bpm: 72, o2: 98, hp: 100, isAlive: true, state: "OPERATIVAN" };bodyPhys = { x: width / 2, y: height / 2 - 80, vx: 0, vy: 0, radius: 180 };document.getElementById('hud-state').className = "stat-val";buildHumanLayers();spawnOrgan('Srce', 0, 0.35);spawnOrgan('Pluća', -0.4, 0.45);spawnOrgan('Pluća', 0.4, 0.45);spawnOrgan('Jetra', -0.2, -0.3);logToConsole("🤖 REGEN: Ćelije, skelet i svi slojevi subjekta su kompletno obnovljeni.");}function logToConsole(msg) {const box = document.getElementById('console-log');if(box) { box.innerHTML += <div>> ${msg}</div>; box.scrollTop = box.scrollHeight; }}// --- GLAVNA SIMULACIONA PETLJA FIZIKE I CRTAČA ---function mainLoop() {ctx.fillStyle = '#ffffff';ctx.fillRect(0, 0, width, height);// 1. PRIMENI GRAVITACIJU NA RAGDOLL TELOif (dragTarget !== 'body') {bodyPhys.vy += GRAVITY;bodyPhys.x += bodyPhys.vx; bodyPhys.y += bodyPhys.vy;bodyPhys.vx *= FRICTION; bodyPhys.vy *= FRICTION;// Odskakanje i granice ekranaif (bodyPhys.y + bodyPhys.radius > height) {bodyPhys.y = height - bodyPhys.radius; bodyPhys.vy *= BOUNCE;if(Math.abs(bodyPhys.vy) > 3) spawnBloodExplosion(bodyPhys.x, height - 10, Math.floor(Math.abs(bodyPhys.vy)*4));}if (bodyPhys.x + bodyPhys.radius > width - 310) { bodyPhys.x = width - 310 - bodyPhys.radius; bodyPhys.vx *= BOUNCE; }if (bodyPhys.x - bodyPhys.radius < 290) { bodyPhys.x = 290 + bodyPhys.radius; bodyPhys.vx *= BOUNCE; }}// 2. PROJEKTILI (Fizika strela i RPG raketa)for(let i = projectiles.length - 1; i >= 0; i--) {let pr = projectiles[i];pr.x += pr.vx; pr.y += pr.vy;// Crtanje projektila u letuctx.fillStyle = pr.type === 'rocket' ? '#475569' : '#0f172a';ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.type === 'rocket' ? 6 : 2, 0, Math.PI*2); ctx.fill();
